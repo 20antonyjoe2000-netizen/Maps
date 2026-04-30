@@ -1,7 +1,10 @@
 -- supabase/migrations/002_run_points_rpc.sql
+-- NOTE: use DROP FUNCTION first if the return type changes in a future migration
 create or replace function get_run_points_coords(p_run_id uuid)
 returns table(seq int4, lng float8, lat float8)
-language sql stable security invoker as $$
+language sql stable security invoker
+set search_path = public, extensions, auth
+as $$
   select rp.seq,
          st_x(rp.location::geometry)::float8,
          st_y(rp.location::geometry)::float8
