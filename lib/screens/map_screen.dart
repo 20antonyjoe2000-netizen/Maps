@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'history_screen.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -122,10 +124,21 @@ class _MapScreenState extends State<MapScreen> {
     });
 
     _locationSub = geo.Geolocator.getPositionStream(
-      locationSettings: const geo.LocationSettings(
-        accuracy: geo.LocationAccuracy.high,
-        distanceFilter: 5,
-      ),
+      locationSettings: Platform.isAndroid
+          ? geo.AndroidSettings(
+              accuracy: geo.LocationAccuracy.high,
+              distanceFilter: 5,
+              foregroundNotificationConfig:
+                  const geo.ForegroundNotificationConfig(
+                notificationTitle: 'Run in progress',
+                notificationText: 'Tracking your route',
+                enableWakeLock: true,
+              ),
+            )
+          : const geo.LocationSettings(
+              accuracy: geo.LocationAccuracy.high,
+              distanceFilter: 5,
+            ),
     ).listen(_onLocation);
   }
 
@@ -286,6 +299,23 @@ class _MapScreenState extends State<MapScreen> {
                   style: IconButton.styleFrom(backgroundColor: Colors.black54),
                   onPressed: () =>
                       Supabase.instance.client.auth.signOut(),
+                ),
+              ),
+            ),
+          if (!_isTracking && !_saving)
+            Positioned(
+              top: 48,
+              left: 16,
+              child: SafeArea(
+                child: IconButton.filled(
+                  icon: const Icon(Icons.history),
+                  style: IconButton.styleFrom(
+                      backgroundColor: Colors.black54),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const HistoryScreen()),
+                  ),
                 ),
               ),
             ),
