@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'config.dart';
 import 'screens/auth_screen.dart';
 import 'screens/map_screen.dart';
 
-const _mapboxToken =
-    'MAPBOX_TOKEN_REMOVED';
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  MapboxOptions.setAccessToken(_mapboxToken);
+  MapboxOptions.setAccessToken(mapboxToken);
   await Supabase.initialize(
-    url: 'SUPABASE_URL_REMOVED',
-    anonKey:
-        'SUPABASE_ANON_KEY_REMOVED',
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
   );
   runApp(const MyApp());
 }
