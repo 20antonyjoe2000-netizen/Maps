@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'history_screen.dart';
 
@@ -92,20 +93,76 @@ class _MapScreenState extends State<MapScreen> {
     _lineManager = await map.annotations.createPolylineAnnotationManager();
   }
 
-  Future<void> _startTracking() async {
-    geo.LocationPermission perm = await geo.Geolocator.checkPermission();
-    if (perm == geo.LocationPermission.denied) {
-      perm = await geo.Geolocator.requestPermission();
+  Future<bool> _ensureBackgroundPermissions() async {
+    var locPerm = await geo.Geolocator.checkPermission();
+
+    if (locPerm == geo.LocationPermission.denied) {
+      locPerm = await geo.Geolocator.requestPermission();
     }
-    if (perm == geo.LocationPermission.denied ||
-        perm == geo.LocationPermission.deniedForever) {
+
+    if (locPerm == geo.LocationPermission.denied ||
+        locPerm == geo.LocationPermission.deniedForever) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Location permission required')),
         );
       }
-      return;
+      return false;
     }
+
+    if (locPerm == geo.LocationPermission.whileInUse) {
+      if (mounted) {
+        await showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Background location needed'),
+            content: const Text(
+              'Tracking stops when your screen turns off unless you allow '
+              '"Always" location access.\n\n'
+              'Open Settings → Permissions → Location → Allow all the time.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await geo.Geolocator.openAppSettings();
+                },
+                child: const Text('Open Settings'),
+              ),
+            ],
+          ),
+        );
+      }
+      locPerm = await geo.Geolocator.checkPermission();
+      if (locPerm != geo.LocationPermission.always) return false;
+    }
+
+    final batteryOk = await Permission.ignoreBatteryOptimizations.isGranted;
+    if (!batteryOk) {
+      await Permission.ignoreBatteryOptimizations.request();
+      final granted = await Permission.ignoreBatteryOptimizations.isGranted;
+      if (!granted && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Battery optimization not disabled — tracking may stop when screen is off.',
+            ),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+
+    return true;
+  }
+
+  Future<void> _startTracking() async {
+    final ok = await _ensureBackgroundPermissions();
+    if (!ok) return;
 
     setState(() {
       _isTracking = true;
